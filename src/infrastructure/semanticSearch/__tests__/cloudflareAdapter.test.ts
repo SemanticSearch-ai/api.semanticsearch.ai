@@ -151,7 +151,7 @@ describe('CloudflareSemanticSearchAdapter', () => {
       const result = await adapter.query(queryVector, 2)
 
       expect(result).toEqual(matches)
-      expect(mockQuery).toHaveBeenCalledWith(queryVector, { topK: 2 })
+      expect(mockQuery).toHaveBeenCalledWith(queryVector, { topK: 2, returnMetadata: "all" })
     })
 
     it('should handle query errors', async () => {

@@ -84,7 +84,7 @@ export class CloudflareSemanticSearchAdapter {
 
   async query(queryVector: number[], limit: number = 10): Promise<VectorizeMatch[]> {
     try {
-      const result = await this.env.VECTORIZE.query(queryVector, { topK: limit })
+      const result = await this.env.VECTORIZE.query(queryVector, { topK: limit, returnMetadata: "all" })
       return result.matches
     } catch (error) {
       throw new Error(`Failed to query vectors: ${error instanceof Error ? error.message : String(error)}`)
