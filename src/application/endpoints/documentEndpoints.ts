@@ -6,50 +6,50 @@ export class DocumentEndpoints {
 
   indexDocument = async (c: Context) => {
     try {
-      const { indexName } = c.req.param()
-      const body = await c.req.json()
-      const id = await this.service.indexDocument(indexName, body)
-      return c.json({ id })
+      const document = await c.req.json()
+      const documentId = await this.service.indexDocument(document)
+      return c.json({ id: documentId }, 200 as const)
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
-      return c.json({ error: message }, 400)
+      return c.json({ error: error instanceof Error ? error.message : 'Unknown error' }, 400 as const)
     }
   }
 
   getDocument = async (c: Context) => {
     try {
-      const { indexName, id } = c.req.param()
-      const document = await this.service.getDocument(indexName, id)
-      return c.json(document)
+      const { id } = c.req.param()
+      const document = await this.service.getDocument(id)
+      if (!document) {
+        return c.json({ error: 'Document not found' }, 404 as const)
+      }
+      return c.json(document, 200 as const)
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
-      return c.json({ error: message }, 404)
+      return c.json({ error: error instanceof Error ? error.message : 'Unknown error' }, 404 as const)
     }
   }
 
   deleteDocument = async (c: Context) => {
     try {
-      const { indexName, id } = c.req.param()
-      const success = await this.service.deleteDocument(indexName, id)
-      if (!success) {
-        return c.json({ error: 'Document not found' }, 404)
+      const { id } = c.req.param()
+      const deleted = await this.service.deleteDocument(id)
+      if (!deleted) {
+        return c.json({ error: 'Document not found' }, 404 as const)
       }
-      return c.json({ success })
+      return c.json({ success: true }, 200 as const)
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
-      return c.json({ error: message }, 400)
+      return c.json({ error: error instanceof Error ? error.message : 'Unknown error' }, 400 as const)
     }
   }
 
   searchDocuments = async (c: Context) => {
     try {
-      const { indexName } = c.req.param()
-      const query = await c.req.json()
-      const results = await this.service.searchDocuments(indexName, query)
-      return c.json({ results })
+      const { query, limit } = await c.req.json()
+      if (!query) {
+        return c.json({ error: 'Query is required' }, 400 as const)
+      }
+      const results = await this.service.searchDocuments(query, limit)
+      return c.json({ results }, 200 as const)
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
-      return c.json({ error: message }, 400)
+      return c.json({ error: error instanceof Error ? error.message : 'Unknown error' }, 400 as const)
     }
   }
 }

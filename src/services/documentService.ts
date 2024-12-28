@@ -1,39 +1,37 @@
-import { nanoid } from 'nanoid'
-import { Document, DocumentRepository, SearchQuery, SearchResult } from '../domain/document'
+import * as crypto from 'crypto'
+import { Document } from '../domain/document'
+import { DocumentRepository } from '../domain/documentRepository'
 
 export class DocumentService {
   constructor(private repository: DocumentRepository) {}
 
-  async indexDocument(indexName: string, data: Partial<Document>): Promise<string> {
+  async indexDocument(data: Partial<Document>): Promise<string> {
+    if (!data.text) {
+      throw new Error('Document text is required')
+    }
+
     const document: Document = {
-      id: data.id || nanoid(),
-      text: data.text!,
-      metadata: data.metadata || {}
+      id: data.id || crypto.randomUUID(),
+      text: data.text,
+      metadata: data.metadata,
     }
 
-    if (!document.text) {
-      throw new Error('text field is required')
-    }
-
-    return await this.repository.save(indexName, document)
+    return await this.repository.indexDocument(document)
   }
 
-  async getDocument(indexName: string, id: string): Promise<Document> {
-    const document = await this.repository.findById(indexName, id)
-    if (!document) {
-      throw new Error('Document not found')
-    }
-    return document
+  async getDocument(id: string): Promise<Document | null> {
+    return await this.repository.getDocument(id)
   }
 
-  async deleteDocument(indexName: string, id: string): Promise<boolean> {
-    return await this.repository.delete(indexName, id)
+  async deleteDocuments(ids: string[]): Promise<boolean[]> {
+    return await this.repository.deleteDocuments(ids)
   }
 
-  async searchDocuments(indexName: string, query: SearchQuery): Promise<SearchResult[]> {
-    if (!query.query) {
-      throw new Error('query is required')
-    }
-    return await this.repository.search(indexName, query)
+  async deleteDocument(id: string): Promise<boolean> {
+    return await this.repository.deleteDocument(id)
+  }
+
+  async searchDocuments(query: string, limit?: number): Promise<Array<{ document: Document; score: number }>> {
+    return await this.repository.searchDocuments(query, limit)
   }
 }

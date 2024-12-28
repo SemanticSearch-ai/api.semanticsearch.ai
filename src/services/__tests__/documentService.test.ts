@@ -1,113 +1,136 @@
 import { DocumentService } from '../documentService'
-import { InMemoryDocumentRepository } from '../../infrastructure/test/inMemoryDocumentRepository'
-import { Document, SearchQuery } from '../../domain/document'
+import { Document } from '../../domain/document'
+import { DocumentRepository } from '../../domain/documentRepository'
 
 describe('DocumentService', () => {
   let service: DocumentService
-  let repository: InMemoryDocumentRepository
+  let mockRepository: jest.Mocked<DocumentRepository>
 
   beforeEach(() => {
-    repository = new InMemoryDocumentRepository()
-    service = new DocumentService(repository)
+    mockRepository = {
+      indexDocument: jest.fn(),
+      getDocument: jest.fn(),
+      deleteDocument: jest.fn(),
+      deleteDocuments: jest.fn(),
+      searchDocuments: jest.fn()
+    }
+    service = new DocumentService(mockRepository)
   })
 
   describe('indexDocument', () => {
-    it('should create a document with generated id', async () => {
-      const data = { text: 'test document' }
-      const id = await service.indexDocument('test-index', data)
-      expect(id).toBeTruthy()
+    it('should index document with generated id', async () => {
+      const data = {
+        text: 'test document'
+      }
 
-      const document = await repository.findById('test-index', id)
-      expect(document).toBeTruthy()
-      expect(document!.text).toBe(data.text)
+      mockRepository.indexDocument.mockResolvedValue('generated-id')
+
+      const id = await service.indexDocument(data)
+
+      expect(id).toBe('generated-id')
+      expect(mockRepository.indexDocument).toHaveBeenCalledWith(expect.objectContaining({
+        text: data.text
+      }))
     })
 
-    it('should use provided id', async () => {
-      const data = { id: 'test-id', text: 'test document' }
-      const id = await service.indexDocument('test-index', data)
-      expect(id).toBe('test-id')
+    it('should use provided id if available', async () => {
+      const data = {
+        id: 'custom-id',
+        text: 'test document'
+      }
+
+      mockRepository.indexDocument.mockResolvedValue(data.id)
+
+      const id = await service.indexDocument(data)
+
+      expect(id).toBe(data.id)
+      expect(mockRepository.indexDocument).toHaveBeenCalledWith(expect.objectContaining({
+        id: data.id,
+        text: data.text
+      }))
     })
 
     it('should throw error if text is missing', async () => {
-      const data = { id: 'test-id' } as any
-      await expect(service.indexDocument('test-index', data))
-        .rejects
-        .toThrow('text field is required')
+      const data = {
+        id: 'test-id'
+      }
+
+      await expect(service.indexDocument(data)).rejects.toThrow('Document text is required')
+      expect(mockRepository.indexDocument).not.toHaveBeenCalled()
     })
   })
 
   describe('getDocument', () => {
-    it('should retrieve existing document', async () => {
-      const data: Document = {
+    it('should return document if exists', async () => {
+      const document: Document = {
         id: 'test-id',
         text: 'test document'
       }
-      await repository.save('test-index', data)
 
-      const document = await service.getDocument('test-index', 'test-id')
-      expect(document).toEqual(data)
+      mockRepository.getDocument.mockResolvedValue(document)
+
+      const result = await service.getDocument('test-id')
+
+      expect(result).toEqual(document)
+      expect(mockRepository.getDocument).toHaveBeenCalledWith('test-id')
     })
 
-    it('should throw error for non-existent document', async () => {
-      await expect(service.getDocument('test-index', 'non-existent'))
-        .rejects
-        .toThrow('Document not found')
+    it('should return null if document does not exist', async () => {
+      mockRepository.getDocument.mockResolvedValue(null)
+
+      const result = await service.getDocument('non-existent')
+
+      expect(result).toBeNull()
+      expect(mockRepository.getDocument).toHaveBeenCalledWith('non-existent')
     })
   })
 
   describe('deleteDocument', () => {
-    it('should delete existing document', async () => {
-      const data: Document = {
-        id: 'test-id',
-        text: 'test document'
-      }
-      await repository.save('test-index', data)
+    it('should delete document and return true', async () => {
+      mockRepository.deleteDocument.mockResolvedValue(true)
 
-      const result = await service.deleteDocument('test-index', 'test-id')
+      const result = await service.deleteDocument('test-id')
+
       expect(result).toBe(true)
-
-      const document = await repository.findById('test-index', 'test-id')
-      expect(document).toBeNull()
+      expect(mockRepository.deleteDocument).toHaveBeenCalledWith('test-id')
     })
 
-    it('should return false for non-existent document', async () => {
-      const result = await service.deleteDocument('test-index', 'non-existent')
+    it('should return false if document does not exist', async () => {
+      mockRepository.deleteDocument.mockResolvedValue(false)
+
+      const result = await service.deleteDocument('non-existent')
+
       expect(result).toBe(false)
+      expect(mockRepository.deleteDocument).toHaveBeenCalledWith('non-existent')
     })
   })
 
   describe('searchDocuments', () => {
-    beforeEach(async () => {
-      // 添加一些测试文档
-      await repository.save('test-index', {
-        id: '1',
-        text: 'first test document'
-      })
-      await repository.save('test-index', {
-        id: '2',
-        text: 'second test document'
-      })
+    it('should search documents with limit', async () => {
+      const documents = [
+        { id: 'doc1', text: 'first document' },
+        { id: 'doc2', text: 'second document' }
+      ]
+
+      const searchResults = documents.map((document, index) => ({
+        document,
+        score: 1 - index * 0.1
+      }))
+
+      mockRepository.searchDocuments.mockResolvedValue(searchResults)
+
+      const results = await service.searchDocuments('test query', 5)
+
+      expect(results).toEqual(searchResults)
+      expect(mockRepository.searchDocuments).toHaveBeenCalledWith('test query', 5)
     })
 
-    it('should return search results', async () => {
-      const results = await service.searchDocuments('test-index', {
-        query: 'test',
-        limit: 5
-      })
+    it('should search documents without limit', async () => {
+      mockRepository.searchDocuments.mockResolvedValue([])
 
-      expect(results).toHaveLength(2)
-      results.forEach(result => {
-        expect(result.document).toBeTruthy()
-        expect(result.score).toBeGreaterThanOrEqual(0)
-        expect(result.score).toBeLessThanOrEqual(1)
-      })
-    })
+      await service.searchDocuments('test query')
 
-    it('should throw error if query is missing', async () => {
-      const query = { limit: 5 } as SearchQuery
-      await expect(service.searchDocuments('test-index', query))
-        .rejects
-        .toThrow('query is required')
+      expect(mockRepository.searchDocuments).toHaveBeenCalledWith('test query', undefined)
     })
   })
 })

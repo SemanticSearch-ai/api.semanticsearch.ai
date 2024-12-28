@@ -2,7 +2,6 @@ export interface Document {
   id: string
   text: string
   metadata?: Record<string, any>
-  embedding?: number[]
 }
 
 export interface SearchQuery {

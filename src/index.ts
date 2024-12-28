@@ -1,27 +1,26 @@
-import { Hono } from 'hono'
+import { OpenAPIHono } from '@hono/zod-openapi'
 import { cors } from 'hono/cors'
 import { swaggerUI } from '@hono/swagger-ui'
-import { OpenAPIHono, createRoute } from '@hono/zod-openapi'
+import { createRoute } from '@hono/zod-openapi'
 import { z } from 'zod'
 import { DocumentEndpoints } from './application/endpoints/documentEndpoints'
 import { DocumentService } from './services/documentService'
-import { InMemoryDocumentRepository } from './infrastructure/test/inMemoryDocumentRepository'
+import { CloudflareDocumentRepository } from './infrastructure/semanticSearch/cloudflareDocumentRepository'
 import { auth } from './middleware/auth'
+import { Env } from './types'
 
-const app = new OpenAPIHono()
+const app = new OpenAPIHono<{ Bindings: Env }>()
 
-// 初始化依赖
-const repository = new InMemoryDocumentRepository()
-const service = new DocumentService(repository)
-const endpoints = new DocumentEndpoints(service)
+const createDependencies = (env: Env) => {
+  const repository = new CloudflareDocumentRepository(env)
+  const service = new DocumentService(repository)
+  return new DocumentEndpoints(service)
+}
 
-// 启用 CORS
 app.use('/*', cors())
 
-// 启用认证
 app.use('/v1/*', auth())
 
-// API Schema 定义
 const documentSchema = z.object({
   id: z.string().optional(),
   text: z.string(),
@@ -40,14 +39,10 @@ const searchResultSchema = z.object({
   }))
 })
 
-// 注册路由
 const indexRoute = createRoute({
   method: 'post',
-  path: '/v1/index/{indexName}',
+  path: '/v1/documents',
   request: {
-    params: z.object({
-      indexName: z.string()
-    }),
     body: {
       content: {
         'application/json': {
@@ -66,16 +61,25 @@ const indexRoute = createRoute({
         }
       },
       description: 'Document indexed successfully'
+    },
+    400: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            error: z.string()
+          })
+        }
+      },
+      description: 'Bad request'
     }
   }
 })
 
 const getDocumentRoute = createRoute({
   method: 'get',
-  path: '/v1/index/{indexName}/{id}',
+  path: '/v1/documents/:id',
   request: {
     params: z.object({
-      indexName: z.string(),
       id: z.string()
     })
   },
@@ -103,10 +107,9 @@ const getDocumentRoute = createRoute({
 
 const deleteDocumentRoute = createRoute({
   method: 'delete',
-  path: '/v1/index/{indexName}/{id}',
+  path: '/v1/documents/:id',
   request: {
     params: z.object({
-      indexName: z.string(),
       id: z.string()
     })
   },
@@ -130,17 +133,24 @@ const deleteDocumentRoute = createRoute({
         }
       },
       description: 'Document not found'
+    },
+    400: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            error: z.string()
+          })
+        }
+      },
+      description: 'Bad request'
     }
   }
 })
 
 const searchRoute = createRoute({
   method: 'post',
-  path: '/v1/search/{indexName}',
+  path: '/v1/search',
   request: {
-    params: z.object({
-      indexName: z.string()
-    }),
     body: {
       content: {
         'application/json': {
@@ -158,7 +168,7 @@ const searchRoute = createRoute({
       },
       description: 'Search completed successfully'
     },
-    404: {
+    400: {
       content: {
         'application/json': {
           schema: z.object({
@@ -166,34 +176,46 @@ const searchRoute = createRoute({
           })
         }
       },
-      description: 'Index not found'
+      description: 'Bad request'
     }
   }
 })
 
-app.openapi(indexRoute, endpoints.indexDocument)
-app.openapi(getDocumentRoute, endpoints.getDocument)
-app.openapi(deleteDocumentRoute, endpoints.deleteDocument)
-app.openapi(searchRoute, endpoints.searchDocuments)
+app.openapi(indexRoute, async (c) => {
+  const currentEnv = c.env
+  const documentEndpoints = createDependencies(currentEnv)
+  const result = await documentEndpoints.indexDocument(c)
+  return result
+})
 
-// 添加 Swagger UI
+app.openapi(getDocumentRoute, async (c) => {
+  const currentEnv = c.env
+  const documentEndpoints = createDependencies(currentEnv)
+  const result = await documentEndpoints.getDocument(c)
+  return result
+})
+
+app.openapi(deleteDocumentRoute, async (c) => {
+  const currentEnv = c.env
+  const documentEndpoints = createDependencies(currentEnv)
+  const result = await documentEndpoints.deleteDocument(c)
+  return result
+})
+
+app.openapi(searchRoute, async (c) => {
+  const currentEnv = c.env
+  const documentEndpoints = createDependencies(currentEnv)
+  const result = await documentEndpoints.searchDocuments(c)
+  return result
+})
+
+// Add Swagger UI
 app.doc('/swagger.json', {
   openapi: '3.0.0',
   info: {
     title: 'Semantic Search API',
     version: '1.0.0',
     description: 'API for semantic search functionality'
-  },
-  security: [{
-    bearerAuth: []
-  }],
-  components: {
-    securitySchemes: {
-      bearerAuth: {
-        type: 'http',
-        scheme: 'bearer'
-      }
-    }
   }
 })
 

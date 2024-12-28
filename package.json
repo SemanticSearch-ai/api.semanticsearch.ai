@@ -11,7 +11,7 @@
 		"test": "jest",
 		"test:watch": "jest --watch",
 		"test:service": "jest src/services/__tests__",
-		"test:adapter": "jest src/infrastructure/__tests__"
+		"test:adapter": "jest src/infrastructure/*/__tests__"
 	},
 	"dependencies": {
 		"@hono/swagger-ui": "^0.5.0",
