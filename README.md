@@ -1,22 +1,19 @@
-
 # Semantic Search API
+
+### Build a Zero-Cost Semantic Search Engine with Cloudflare Workers
 
 This project provides a production-ready semantic search engine built entirely on Cloudflare's free-tier infrastructure.
 
-By leveraging Cloudflare Workers and Vectorize, it offers powerful semantic search capabilities without any hosting costs.
-
 The API follows OpenAPI specifications with full Swagger documentation available at `/swagger.json`, making it easy to integrate and use in your applications.
 
-## Build a Zero-Cost Semantic Search Engine with Cloudflare Workers
+## Installation
 
+### Option 1: One-Click Deploy
 [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/SemanticSearch-ai/api.semanticsearch.ai.git)
 
-By clicking the button above, you can deploy the API server to Cloudflare Workers. It's free and easy to set up.
+Before deployment, create a Vectorize index as described in step 4 below.
 
-Once deployed, you can set the API key in your application using the `API_KEY` environment variable.
-
-## Deploy from command line
-
+### Option 2: Manual Setup
 1. Sign up for [Cloudflare Workers](https://workers.dev). The free tier is more than enough for most use cases.
 2. Clone this project and install dependencies with `pnpm install`
 3. Run `wrangler login` to login to your Cloudflare account in wrangler
@@ -25,6 +22,8 @@ Once deployed, you can set the API key in your application using the `API_KEY` e
    wrangler vectorize create semantic-search --dimensions=384 --metric=cosine
    ```
 5. Run `wrangler deploy` to publish the API to Cloudflare Workers
+
+Once deployed, set the API key by updating the `API_KEY` environment variable.
 
 ## Usage
 
@@ -122,5 +121,3 @@ All endpoints require authentication using a Bearer token in the Authorization h
 ## License
 
 This project is licensed under the Apache License 2.0. It is free for commercial use, but you need to include a link to https://semanticsearch.ai/ in your product.
-
-
